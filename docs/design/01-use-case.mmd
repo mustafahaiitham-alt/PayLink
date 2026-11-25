@@ -1,0 +1,76 @@
+flowchart LR
+    Customer(["Customer"])
+    Agent(["Agent"])
+    Support(["Support Employee"])
+    Admin(["Administrator"])
+    Biller(["External Biller"])
+    Notif(["Notification Provider"])
+
+    subgraph PayLink ["PayLink System"]
+        UC1(["Register Account"])
+        UC2(["Upgrade Verification Level"])
+        UC3(["View Wallet Balance"])
+        UC4(["View Transaction History"])
+        UC5(["Top Up Wallet"])
+        UC6(["View Active Billers & Required Fields"])
+        UC7(["Inquire About Bill"])
+        UC8(["Pay a Bill"])
+        UC9(["Pay Bill on Behalf of Customer"])
+        UC10(["Calculate Service Fee"])
+        UC11(["Check Limits & Velocity"])
+        UC12(["Hold Wallet Funds"])
+        UC13(["Process Payment with Biller"])
+        UC14(["Handle Timeout & Retry"])
+        UC15(["Receive Async Callback"])
+        UC16(["Release Held Funds on Failure"])
+        UC17(["Send Payment Notification"])
+        UC18(["Search Payment by Reference & History"])
+        UC19(["Block / Unblock Account"])
+        UC20(["Request Refund"])
+        UC21(["Approve Refund"])
+        UC22(["Manage Billers & Services"])
+        UC23(["Update Fees & Limits"])
+        UC24(["Run Daily Reconciliation"])
+        UC25(["View Daily Business Totals"])
+    end
+
+    Customer --> UC1
+    Customer --> UC2
+    Customer --> UC3
+    Customer --> UC4
+    Customer --> UC5
+    Customer --> UC6
+    Customer --> UC7
+    Customer --> UC8
+    Customer --> UC20
+
+    Agent --> UC5
+    Agent --> UC9
+
+    Support --> UC18
+    Support --> UC19
+    Support --> UC21
+    Support --> UC24
+
+    Admin --> UC22
+    Admin --> UC23
+    Admin --> UC25
+
+    Biller --> UC7
+    Biller --> UC13
+    Biller --> UC15
+    Biller --> UC24
+
+    Notif --> UC17
+
+    UC8 -.->|"&lt;&lt;include&gt;&gt;"| UC10
+    UC8 -.->|"&lt;&lt;include&gt;&gt;"| UC11
+    UC8 -.->|"&lt;&lt;include&gt;&gt;"| UC12
+    UC8 -.->|"&lt;&lt;include&gt;&gt;"| UC13
+    UC9 -.->|"&lt;&lt;include&gt;&gt;"| UC8
+
+    UC13 -.->|"&lt;&lt;extend&gt;&gt; [Timeout]"| UC14
+    UC13 -.->|"&lt;&lt;extend&gt;&gt; [Async Callback]"| UC15
+    UC13 -.->|"&lt;&lt;extend&gt;&gt; [Confirmed Failure]"| UC16
+    UC13 -.->|"&lt;&lt;extend&gt;&gt; [Completed or Failed]"| UC17
+    UC20 -.->|"&lt;&lt;extend&gt;&gt; [Refund Approval]"| UC21

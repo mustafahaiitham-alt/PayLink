@@ -1,0 +1,87 @@
+sequenceDiagram
+    autonumber
+    actor Customer
+    participant API as PayLink API / Payment Service
+    participant Wallet as Wallet & Ledger
+    participant Biller as External Biller
+    participant Notif as Notification Service
+    participant Audit as Audit Log
+
+    Customer->>API: Inquire bill (biller, details)
+    API->>Biller: Query bill amount
+    Biller-->>API: Bill amount
+    API-->>Customer: Bill amount, fee & total
+
+    Customer->>API: Pay bill (idempotencyKey, totalAmount)
+    API->>Audit: Record payment attempt & idempotency check
+
+    alt Duplicate idempotencyKey already processed
+        API-->>Customer: Return stored payment result
+    else New payment request
+        API->>Wallet: Validate limits, velocity & available balance
+
+        alt Validation fails (limit, velocity, or balance)
+            Wallet-->>API: Validation failed (reason)
+            API->>Audit: Record rejection
+            API-->>Customer: Payment Rejected
+        else Validation passes
+            Wallet-->>API: Validation passed
+            API->>API: Create payment (Initiated)
+            API->>Wallet: Hold totalAmount (ledger hold)
+            Wallet-->>API: Held
+            API->>API: Status = FundsHeld
+            API->>Audit: Record funds held
+
+            API->>API: Status = SentToBiller
+            API->>Biller: Submit payment (reference, amount)
+
+            alt Confirmed success
+                Biller-->>API: Paid
+                API->>Wallet: Capture held funds & fee/commission entries
+                API->>API: Status = Completed
+                API->>Audit: Record completion & ledger settlement
+                API->>Notif: Send SMS & Push (Completed)
+                loop Up to 3 retries if delivery fails
+                    Notif-->>Notif: Retry notification (mark undelivered if exhausted)
+                end
+                API-->>Customer: Payment Completed
+            else Confirmed failure (biller refuses)
+                Biller-->>API: Refused (reason)
+                API->>Wallet: Release held funds (ledger release)
+                API->>API: Status = Failed -> Refunded
+                API->>Audit: Record failure & hold release
+                API->>Notif: Send SMS & Push (Failed)
+                loop Up to 3 retries if delivery fails
+                    Notif-->>Notif: Retry notification (mark undelivered if exhausted)
+                end
+                API-->>Customer: Payment Failed (funds released)
+            else Timeout (>10s) or async callback pending
+                Biller--xAPI: No response within 10s (or accepted async)
+                API->>API: Status = Unknown (keep funds held, no auto-refund)
+                API->>Audit: Record Unknown state
+                API-->>Customer: Payment processing (Unknown)
+
+                loop Retry at 1, 5, and 15 minutes
+                    API->>Biller: Re-query payment status
+                    alt Later confirmed paid (retry or callback)
+                        Biller-->>API: Confirmed paid
+                        API->>Wallet: Capture held funds
+                        API->>API: Status = Completed
+                        API->>Audit: Record completion
+                        API->>Notif: Send SMS & Push (Completed)
+                    else Later confirmed refused
+                        Biller-->>API: Confirmed refused
+                        API->>Wallet: Release held funds
+                        API->>API: Status = Failed -> Refunded
+                        API->>Audit: Record failure & hold release
+                        API->>Notif: Send SMS & Push (Failed)
+                    end
+                end
+
+                opt Duplicate callback arrives later
+                    Biller->>API: Duplicate callback
+                    API->>Audit: Log duplicate callback (ignored)
+                end
+            end
+        end
+    end

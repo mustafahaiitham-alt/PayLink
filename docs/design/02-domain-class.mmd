@@ -1,0 +1,219 @@
+classDiagram
+    class User {
+        <<abstract>>
+        +String id
+        +String name
+        +String contactInfo
+        +Boolean isBlocked
+        +DateTime blockedUntil
+    }
+
+    class Customer {
+        +VerificationLevel verificationLevel
+        +Decimal dailyLimit
+    }
+
+    class Agent {
+        +String terminalId
+        +Decimal commissionRate
+    }
+
+    class SupportEmployee {
+        +String employeeCode
+    }
+
+    class Administrator {
+        +String adminCode
+    }
+
+    class Wallet {
+        +String id
+        +String currency
+        +Decimal availableBalance
+        +Decimal heldBalance
+    }
+
+    class LedgerEntry {
+        +String id
+        +LedgerEntryType entryType
+        +Decimal amount
+        +DateTime createdAt
+        +String description
+    }
+
+    class Biller {
+        +String id
+        +String name
+        +BillerProtocol protocol
+        +Boolean isActive
+        +Decimal minAmount
+        +Decimal maxAmount
+    }
+
+    class BillService {
+        +String id
+        +String serviceName
+        +String requiredInputField
+        +Boolean isActive
+    }
+
+    class FeeRule {
+        +String id
+        +FeeType feeType
+        +Decimal fixedAmount
+        +Decimal percentageRate
+        +Decimal minFee
+        +Decimal tierThreshold
+        +Decimal lowerTierFee
+        +Decimal upperTierFee
+        +DateTime promoStart
+        +DateTime promoEnd
+        +Boolean isPromoActive
+    }
+
+    class Payment {
+        +String id
+        +String reference
+        +String idempotencyKey
+        +Decimal billAmount
+        +Decimal serviceFee
+        +Decimal totalAmount
+        +PaymentStatus status
+        +DateTime createdAt
+    }
+
+    class Refund {
+        +String id
+        +RefundType refundType
+        +Decimal amount
+        +RefundStatus status
+        +DateTime requestedAt
+        +DateTime resolvedAt
+    }
+
+    class Notification {
+        +String id
+        +NotificationChannel channel
+        +NotificationStatus status
+        +Integer retryCount
+        +DateTime lastAttemptAt
+    }
+
+    class AuditLog {
+        +String id
+        +String actionType
+        +String reason
+        +DateTime occurredAt
+    }
+
+    class SettlementFile {
+        +String id
+        +String fileReference
+        +Date receivedDate
+        +String format
+    }
+
+    class ReconciliationReport {
+        +String id
+        +Date reportDate
+        +Integer mismatchCount
+        +String summary
+    }
+
+    class VerificationLevel {
+        <<enumeration>>
+        BASIC
+        VERIFIED
+    }
+
+    class PaymentStatus {
+        <<enumeration>>
+        INITIATED
+        FUNDS_HELD
+        REJECTED
+        SENT_TO_BILLER
+        COMPLETED
+        FAILED
+        UNKNOWN
+        REFUNDED
+    }
+
+    class LedgerEntryType {
+        <<enumeration>>
+        TOP_UP
+        HOLD
+        RELEASE_HOLD
+        CAPTURE
+        REFUND
+        COMMISSION
+    }
+
+    class BillerProtocol {
+        <<enumeration>>
+        REST_JSON
+        SOAP_XML
+        ASYNC_CALLBACK
+        BATCH_CSV
+    }
+
+    class FeeType {
+        <<enumeration>>
+        FIXED
+        PERCENTAGE
+        TIERED
+        PROMOTIONAL
+    }
+
+    class RefundType {
+        <<enumeration>>
+        FAILED_PAYMENT_RELEASE
+        COMPLETED_PAYMENT_REFUND
+    }
+
+    class RefundStatus {
+        <<enumeration>>
+        PENDING_APPROVAL
+        APPROVED
+        REJECTED
+        PROCESSED
+    }
+
+    class NotificationChannel {
+        <<enumeration>>
+        SMS
+        PUSH
+        EMAIL
+    }
+
+    class NotificationStatus {
+        <<enumeration>>
+        PENDING
+        SENT
+        UNDELIVERED
+    }
+
+    User <|-- Customer
+    User <|-- Agent
+    User <|-- SupportEmployee
+    User <|-- Administrator
+
+    Customer "1" --> "1" Wallet : owns
+    Wallet "1" *-- "0..*" LedgerEntry : derived from
+    Customer "1" --> "0..*" Payment : initiates
+    Agent "0..1" --> "0..*" Payment : processes on behalf of
+    Agent "1" --> "0..1" Wallet : commission wallet
+
+    Biller "1" *-- "1..*" BillService : offers
+    Biller "1" --> "0..1" FeeRule : governed by
+    Biller "1" --> "0..*" Payment : receives
+    Biller "1" --> "0..*" SettlementFile : provides
+
+    Payment "1" --> "0..*" Refund : associated with
+    Payment "1" --> "0..*" Notification : triggers
+    SupportEmployee "0..1" --> "0..*" Refund : approves
+
+    SettlementFile "1" --> "0..1" ReconciliationReport : produces
+    SupportEmployee "0..1" --> "0..*" ReconciliationReport : reviews
+
+    User "1" --> "0..*" AuditLog : performs
+    Administrator "0..*" --> "0..*" FeeRule : configures

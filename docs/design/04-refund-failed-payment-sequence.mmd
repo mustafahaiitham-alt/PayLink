@@ -1,0 +1,39 @@
+sequenceDiagram
+    autonumber
+    participant Biller as External Biller
+    participant API as PayLink Payment Service
+    participant Wallet as Wallet & Ledger
+    participant Audit as Audit Log
+    participant Notif as Notification Service
+    actor Customer
+
+    Note over API,Wallet: Precondition: Payment is SentToBiller and funds are held in wallet
+
+    Biller->>API: Biller response / callback (paymentReference, outcome)
+    API->>API: Check current payment state & duplicate callback
+
+    alt Payment already Failed / Refunded (Duplicate callback)
+        API->>Audit: Log duplicate failure callback (ignored)
+        API-->>Biller: Acknowledge (no duplicate release)
+    else Biller confirms failure while SentToBiller (or Unknown)
+        API->>API: Transition status -> Failed
+        API->>Audit: Record Failed state transition
+
+        API->>Wallet: Release held funds (amount, paymentReference)
+        Wallet->>Wallet: Append immutable RELEASE_HOLD ledger entry
+        Wallet-->>API: Updated available & held balances (derived)
+
+        API->>API: Transition status -> Refunded
+        API->>Audit: Record ledger release & Refunded state
+
+        API->>Notif: Send SMS & Push failure notification (reason)
+        loop Up to 3 retries if delivery fails
+            Notif-->>Notif: Retry notification (mark Undelivered if exhausted)
+        end
+        Notif-->>Customer: SMS & Push (Payment Failed, funds released)
+        API-->>Biller: Acknowledge
+    else No confirmed refusal yet (Timeout / Status remains Unknown)
+        API->>API: Keep status = Unknown (do NOT release held funds)
+        API->>Audit: Log uncertain outcome (await retry / reconciliation)
+        API-->>Customer: Notify processing still in progress (Unknown)
+    end

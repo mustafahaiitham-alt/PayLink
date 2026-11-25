@@ -1,0 +1,120 @@
+erDiagram
+    User {
+        INT id PK
+        VARCHAR full_name
+        VARCHAR email
+        VARCHAR phone_number
+        VARCHAR role
+        VARCHAR verification_level
+        BOOLEAN is_blocked
+        DATETIME created_at
+    }
+
+    Wallet {
+        INT id PK
+        INT user_id FK
+        VARCHAR currency
+        DATETIME created_at
+    }
+
+    LedgerEntry {
+        INT id PK
+        INT wallet_id FK
+        INT payment_id FK
+        VARCHAR entry_type
+        DECIMAL amount
+        VARCHAR description
+        DATETIME created_at
+    }
+
+    Biller {
+        INT id PK
+        VARCHAR name
+        VARCHAR protocol
+        BOOLEAN is_active
+    }
+
+    Service {
+        INT id PK
+        INT biller_id FK
+        VARCHAR service_name
+        VARCHAR required_field
+        DECIMAL min_amount
+        DECIMAL max_amount
+        BOOLEAN is_active
+    }
+
+    FeeConfiguration {
+        INT id PK
+        INT service_id FK
+        INT updated_by_admin_id FK
+        VARCHAR fee_type
+        DECIMAL fixed_fee
+        DECIMAL percentage_rate
+        DECIMAL min_fee
+        DECIMAL tier_threshold
+        DECIMAL upper_tier_fee
+        DATETIME promo_start
+        DATETIME promo_end
+    }
+
+    Payment {
+        INT id PK
+        INT customer_id FK
+        INT agent_id FK
+        INT service_id FK
+        VARCHAR reference
+        VARCHAR idempotency_key
+        DECIMAL bill_amount
+        DECIMAL service_fee
+        DECIMAL total_amount
+        VARCHAR status
+        DATETIME created_at
+    }
+
+    Commission {
+        INT id PK
+        INT agent_id FK
+        INT payment_id FK
+        DECIMAL commission_amount
+        DATETIME created_at
+    }
+
+    Refund {
+        INT id PK
+        INT payment_id FK
+        INT approved_by_support_id FK
+        VARCHAR refund_type
+        DECIMAL amount
+        VARCHAR status
+        DATETIME created_at
+    }
+
+    Notification {
+        INT id PK
+        INT payment_id FK
+        VARCHAR channel
+        VARCHAR status
+        INT retry_count
+        DATETIME created_at
+    }
+
+    User ||--o| Wallet : owns
+    Wallet ||--o{ LedgerEntry : records
+    Payment ||--o{ LedgerEntry : generates
+
+    Biller ||--|{ Service : provides
+    Service ||--o| FeeConfiguration : uses
+    User ||--o{ FeeConfiguration : updates
+
+    User ||--o{ Payment : makes
+    User ||--o{ Payment : processes
+    Service ||--o{ Payment : paid_for
+
+    User ||--o{ Commission : earns
+    Payment ||--o| Commission : yields
+
+    Payment ||--o{ Refund : has
+    User ||--o{ Refund : approves
+
+    Payment ||--o{ Notification : triggers
